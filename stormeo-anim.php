@@ -3,7 +3,7 @@
  * Plugin Name:       STORMEO Anim
  * Plugin URI:        https://github.com/koonda/stormeo-anim
  * Description:       Generická GSAP animační vrstva pro STORMEO weby (Bricks). Marker třídy anim-* přiřazuješ v class pickeru; bespoke choreografie webu patří do {child-theme}/anim/custom.js.
- * Version:           1.0.0
+ * Version:           1.1.0
  * Author:            STORMEO
  * Author URI:        https://stormeo.cz
  * License:           GPL-2.0-or-later
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('STORMEO_ANIM_VERSION', '1.0.0');
+define('STORMEO_ANIM_VERSION', '1.1.0');
 define('STORMEO_ANIM_URL', plugin_dir_url(__FILE__));
 define('STORMEO_ANIM_DIR', plugin_dir_path(__FILE__));
 
@@ -43,6 +43,29 @@ add_action('wp_enqueue_scripts', function () {
         );
     }
 });
+
+/**
+ * Pre-paint skrytí markerů (anti-FOUC).
+ *
+ * Skrývání dělá jinak až JS (gsap.set) — na pomalé lince to znamená záblesk
+ * obsahu před startem enginu. Inline skript v <head> proto přidá na <html>
+ * třídu `sa-prehide` ještě před prvním vykreslením a CSS pod ní markery schová.
+ *
+ * Pojistky (obsah NIKDY nezůstane schovaný):
+ *   - bez JS se třída vůbec nepřidá → obsah viditelný
+ *   - prefers-reduced-motion → třída se nepřidá
+ *   - engine po initu třídu sundá (viz stormeo-anim.js)
+ *   - failsafe: když se engine do 4 s nenastartuje, třídu sundá timeout
+ */
+add_action('wp_head', function () {
+    if (isset($_GET['bricks'])) {
+        return;
+    }
+    ?>
+<style id="stormeo-anim-prehide">html.sa-prehide .anim-up,html.sa-prehide .anim-fade,html.sa-prehide .anim-left,html.sa-prehide .anim-right,html.sa-prehide .anim-zoom,html.sa-prehide .anim-line,html.sa-prehide .anim-stagger>*,html.sa-prehide .anim-mask>*{visibility:hidden}</style>
+<script id="stormeo-anim-prehide-js">(function(){try{if(window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;var d=document.documentElement;d.classList.add('sa-prehide');window.stormeoAnimFailsafe=setTimeout(function(){d.classList.remove('sa-prehide')},4000);}catch(e){}})();</script>
+    <?php
+}, 1);
 
 /**
  * Aktivace: založí marker třídy v Bricks global classes (idempotentně).

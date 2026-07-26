@@ -29,7 +29,7 @@ Modifikátory (kombinuj s markerem): `anim-fast` (0,8 s) · `anim-slow` (2,2 s) 
 
 - **Grid/seznam = `anim-stagger` na wrapper**, ne `anim-up` na každou kartu.
 - **Hero H1 a LCP obrázek marker třídy NIKDY nedostávají** — Google čeká na vykreslení LCP; hero řeší bespoke vrstva, která běží okamžitě po loadu.
-- Skrývání probíhá **jen přes JS** (`gsap.set`) — bez JS je obsah normálně viditelný (SEO, přístupnost).
+- Skrývání probíhá **jen přes JS** (`gsap.set`) — bez JS je obsah normálně viditelný (SEO, přístupnost). Proti záblesku obsahu před startem enginu (studená cache) plugin vkládá do `<head>` pre-paint skrytí (`html.sa-prehide` + inline CSS) s failsafe timeoutem 4 s — když se engine nenastartuje, obsah se odkryje sám.
 - `prefers-reduced-motion: reduce` → žádné animace, žádné skrývání.
 - Bricks AJAX (query filtry, stránkování, popupy, akordeony, taby) — engine poslouchá Bricks eventy a nové/odkryté uzly doanimuje; obsah nikdy nezůstane schovaný.
 

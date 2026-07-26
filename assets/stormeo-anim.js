@@ -22,7 +22,15 @@
  */
 (function () {
   'use strict';
-  if (!window.gsap || !window.ScrollTrigger) return;
+
+  // pre-paint skrytí z <head> (anti-FOUC) — sundat, jakmile skrývání převezme gsap.set;
+  // při chybějícím GSAP okamžitě, jinak by failsafe držel obsah schovaný 4 s
+  function releasePrehide() {
+    if (window.stormeoAnimFailsafe) clearTimeout(window.stormeoAnimFailsafe);
+    document.documentElement.classList.remove('sa-prehide');
+  }
+
+  if (!window.gsap || !window.ScrollTrigger) { releasePrehide(); return; }
   var gsap = window.gsap;
   var ST = window.ScrollTrigger;
   gsap.registerPlugin(ST);
@@ -155,6 +163,7 @@
   }
 
   initScope(document);
+  releasePrehide();
 
   // Bricks AJAX a interaktivní obsah — nové/odkryté uzly doanimovat, nikdy nenechat schované
   [

@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.0 — 2026-07-26
+
+Anti-FOUC: pre-paint skrytí markerů.
+
+- Nový inline snippet ve `wp_head` (priorita 1): skript přidá na `<html>` třídu `sa-prehide` ještě před prvním vykreslením a inline CSS pod ní schová marker elementy (`anim-up/fade/left/right/zoom/line`, děti `anim-stagger`/`anim-mask`). Odstraňuje záblesk obsahu před startem enginu na studené cache.
+- Engine po initu (`gsap.set` aplikován) třídu `sa-prehide` sundá; při chybějícím GSAP ji sundá okamžitě.
+- Failsafe: když se engine do 4 s nenastartuje (CDN/JS chyba), timeout z inline skriptu třídu sundá sám — obsah nikdy nezůstane schovaný.
+- Bez JS se třída vůbec nepřidá; `prefers-reduced-motion` třídu nepřidává → chování beze změny.
+- V builderu (`?bricks=`) se snippet nevkládá.
+
 ## 1.0.0 — 2026-07-26
 
 První release.
