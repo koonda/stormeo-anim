@@ -3,7 +3,7 @@
  * Plugin Name:       STORMEO Anim
  * Plugin URI:        https://github.com/koonda/stormeo-anim
  * Description:       Generická GSAP animační vrstva pro STORMEO weby (Bricks). Marker třídy anim-* přiřazuješ v class pickeru; bespoke choreografie webu patří do {child-theme}/anim/custom.js.
- * Version:           1.1.0
+ * Version:           1.2.0
  * Author:            STORMEO
  * Author URI:        https://stormeo.cz
  * License:           GPL-2.0-or-later
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('STORMEO_ANIM_VERSION', '1.1.0');
+define('STORMEO_ANIM_VERSION', '1.2.0');
 define('STORMEO_ANIM_URL', plugin_dir_url(__FILE__));
 define('STORMEO_ANIM_DIR', plugin_dir_path(__FILE__));
 
@@ -116,6 +116,19 @@ require STORMEO_ANIM_DIR . 'lib/plugin-update-checker/plugin-update-checker.php'
 $stormeo_anim_update_checker = YahnisElsts\PluginUpdateChecker\v5\PucFactory::buildUpdateChecker(
     'https://github.com/koonda/stormeo-anim/',
     __FILE__,
-    'stormeo-anim'
+    'stormeo-anim',
+    2 // kontrola nové verze každé 2 h (default 12 h)
 );
 $stormeo_anim_update_checker->getVcsApi()->enableReleaseAssets();
+
+/**
+ * Auto-update bez kliknutí: GitHub release se nainstaluje sám, jakmile ho
+ * WP cron (wp_update_plugins, ~2× denně) uvidí. Kombinace s 2h check
+ * periodou PUC = release doteče na všechny weby typicky do pár hodin.
+ */
+add_filter('auto_update_plugin', function ($update, $item) {
+    if (isset($item->plugin) && $item->plugin === plugin_basename(__FILE__)) {
+        return true;
+    }
+    return $update;
+}, 10, 2);

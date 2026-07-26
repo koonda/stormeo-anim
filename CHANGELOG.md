@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.0 — 2026-07-26
+
+Bezobslužné updaty.
+
+- Plugin sám povoluje WP auto-update (`auto_update_plugin` filter pro vlastní basename) — release z GitHubu se nainstaluje bez kliknutí, jakmile ho WP cron uvidí.
+- PUC check perioda zkrácena z 12 h na 2 h → nová verze doteče na weby typicky do pár hodin od release.
+- Pozn.: WP cron běží při návštěvách webu — web zcela bez trafficu se updatne až při první návštěvě/přihlášení.
+
 ## 1.1.0 — 2026-07-26
 
 Anti-FOUC: pre-paint skrytí markerů.

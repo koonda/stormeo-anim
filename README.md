@@ -6,7 +6,7 @@ Generická GSAP animační vrstva pro STORMEO weby stavěné v Bricks Builderu. 
 
 1. Stáhni poslední release a nahraj do `wp-content/plugins/stormeo-anim/` (nebo nainstaluj do default staging setupu — klony ho zdědí).
 2. Aktivuj. Aktivace automaticky založí marker třídy v Bricks global classes.
-3. Updaty chodí z GitHub releases přímo do wp-adminu (plugin-update-checker).
+3. Updaty chodí z GitHub releases samy (plugin-update-checker, kontrola každé 2 h) — plugin si sám zapíná WP auto-update, takže se nová verze nainstaluje bez kliknutí, jakmile ji WP cron uvidí (typicky do pár hodin od release).
 
 ## Marker třídy
 
