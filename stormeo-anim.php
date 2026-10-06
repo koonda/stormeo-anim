@@ -3,7 +3,7 @@
  * Plugin Name:       STORMEO Anim
  * Plugin URI:        https://github.com/koonda/stormeo-anim
  * Description:       Generická GSAP animační vrstva pro STORMEO weby (Bricks). Marker třídy anim-* přiřazuješ v class pickeru; bespoke choreografie webu patří do {child-theme}/anim/custom.js.
- * Version:           1.2.0
+ * Version:           1.2.1
  * Author:            STORMEO
  * Author URI:        https://stormeo.cz
  * License:           GPL-2.0-or-later
@@ -15,7 +15,7 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-define('STORMEO_ANIM_VERSION', '1.2.0');
+define('STORMEO_ANIM_VERSION', '1.2.1');
 define('STORMEO_ANIM_URL', plugin_dir_url(__FILE__));
 define('STORMEO_ANIM_DIR', plugin_dir_path(__FILE__));
 

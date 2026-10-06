@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.1 — 2026-10-06
+
+Oprava: reveal se nespustil, když se po initu změnila výška stránky.
+
+- Engine sleduje výšku dokumentu (`ResizeObserver` na `<body>`, `load` obrázků v capture fázi, `document.fonts.ready`) a při skutečné změně (≥ 2 px, debounce 150 ms) zavolá `ScrollTrigger.refresh()`. Dřív zůstaly pozice triggerů spočítané podle stavu při initu — typicky líně načtené obrázky bez rozměrů (Bricks lazy-load dává SVG placeholder 1×1) stránku po načtení zkrátily, starty spodních sekcí skončily za `maxScroll` a obsah zůstal schovaný.
+- Starty všech triggerů jsou `clamp(top …)` (GSAP 3.12+): prvek, jehož start by vyšel za konec stránky, se odkryje nejpozději na jejím dně.
+- Bez smyčky: výška se ukládá až po refreshi, takže změnu způsobenou samotným refreshem (pin spacery z `custom.js`) zachytí nanejvýš jeden další přepočet.
+- `prefers-reduced-motion` beze změny (žádné triggery, žádné observery).
+
 ## 1.2.0 — 2026-07-26
 
 Bezobslužné updaty.
