@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.2 — 2026-10-07
+
+Oprava regrese z 1.2.1: prvky v prvním viewportu se neodkryly, dokud uživatel nezascrolloval.
+
+- `clamp()` ořezával záporný start prvků nad ohybem na 0 a ScrollTrigger na pozici 0 `onEnter` nevyvolá → hero perex, CTA nebo H1 článku zůstaly skryté (`autoAlpha: 0`) až do prvního scrollu (i pro Googlebot).
+- Start se teď volí podle polohy prvku při initu (měřeno před `gsap.set`): prvek nad spouštěcí linkou → `top 88%` bez clamp (odkryje se hned po načtení jako v 1.2.0), ostatní → `clamp(top 88%)` (oprava spodních sekcí z 1.2.1 zůstává). `ST.batch` se dělí do skupin podle startu.
+- Ověřeno headless na finnessa.cz (hub služeb, článek, homepage): 0 skrytých prvků ve viewportu bez scrollu; spodní sekce se odkryjí; `prefers-reduced-motion` beze změny.
+
 ## 1.2.1 — 2026-10-06
 
 Oprava: reveal se nespustil, když se po initu změnila výška stránky.

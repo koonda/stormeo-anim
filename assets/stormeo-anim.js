@@ -17,7 +17,8 @@
  *     až po Bricks eventu — obsah nikdy nezůstane schovaný
  *   - Bricks AJAX (query filtry, stránkování, popupy) → re-scan nových uzlů
  *   - změna výšky stránky (líně načtené obrázky, webfonty…) → přepočet triggerů
- *   - starty triggerů jsou clamp() → prvek u konce stránky se odkryje nejpozději na jejím dně
+ *   - starty triggerů mimo první viewport jsou clamp() → prvek u konce stránky se odkryje nejpozději
+ *     na jejím dně; prvky v prvním viewportu bez clamp() → odkryjí se hned po načtení
  *   - LCP: hero H1 / LCP obrázek marker třídy nedostávají (řeší bespoke vrstva)
  *
  * Bespoke choreografie webu patří do {child-theme}/anim/custom.js (načítá plugin).
@@ -41,9 +42,16 @@
   var EASE = 'power2.out';
   var SEEN = 'saInit';
 
-  // Start triggeru oříznutý do rozsahu stránky (GSAP 3.12+): když by start vyšel za maxScroll
-  // (prvek u samého konce stránky), trigger se spustí nejpozději na jejím dně.
-  function startAt(pos) { return 'clamp(top ' + pos + ')'; }
+  // Start triggeru. clamp() (GSAP 3.12+) ořízne start do rozsahu stránky → prvek u samého konce
+  // stránky se odkryje nejpozději na jejím dně. Prvky, které jsou už při načtení nad spouštěcí
+  // linkou (první viewport), ale clamp() dostat NESMÍ: jejich záporný start by se ořízl na 0
+  // a ScrollTrigger by onEnter vyvolal až po prvním scrollu → obsah nad ohybem (hero perex,
+  // CTA, H1 článku) zůstal skrytý (chyba 1.2.1). Měřit PŘED gsap.set (transformy posouvají box).
+  function startAt(pos, el) {
+    var scrollTop = window.pageYOffset || document.documentElement.scrollTop || 0;
+    var top = el.getBoundingClientRect().top + scrollTop;
+    return top < window.innerHeight * parseFloat(pos) / 100 ? 'top ' + pos : 'clamp(top ' + pos + ')';
+  }
 
   // overflow hidden pro masky — jediné CSS, které engine přidává
   var style = document.createElement('style');
@@ -78,15 +86,20 @@
       if (!els.length) return;
       els.forEach(mark);
       if (reduced) return;
+      // skupiny podle startu (první viewport bez clamp, zbytek s clamp) - změřit před gsap.set
+      var groups = {};
+      els.forEach(function (el) { var s = startAt('88%', el); (groups[s] = groups[s] || []).push(el); });
       gsap.set(els, PRESETS[name]);
-      ST.batch(els, {
-        start: startAt('88%'),
-        once: true,
-        onEnter: function (batch) {
-          batch.forEach(function (el, i) {
-            gsap.to(el, { x: 0, y: 0, scale: 1, autoAlpha: 1, duration: dur(el), delay: i * 0.12 + delay(el), ease: EASE, overwrite: true });
-          });
-        }
+      Object.keys(groups).forEach(function (start) {
+        ST.batch(groups[start], {
+          start: start,
+          once: true,
+          onEnter: function (batch) {
+            batch.forEach(function (el, i) {
+              gsap.to(el, { x: 0, y: 0, scale: 1, autoAlpha: 1, duration: dur(el), delay: i * 0.12 + delay(el), ease: EASE, overwrite: true });
+            });
+          }
+        });
       });
     });
 
@@ -95,10 +108,11 @@
       mark(parent);
       var kids = Array.prototype.slice.call(parent.children);
       if (!kids.length || reduced) return;
+      var staggerStart = startAt('88%', parent);
       gsap.set(kids, { y: 28, autoAlpha: 0 });
       ST.create({
         trigger: parent,
-        start: startAt('88%'),
+        start: staggerStart,
         once: true,
         onEnter: function () {
           gsap.to(kids, { y: 0, autoAlpha: 1, duration: dur(parent), delay: delay(parent), stagger: 0.1, ease: EASE, overwrite: true });
@@ -111,10 +125,11 @@
       mark(parent);
       var kids = Array.prototype.slice.call(parent.children);
       if (!kids.length || reduced) return;
+      var maskStart = startAt('87%', parent);
       gsap.set(kids, { yPercent: 115 });
       ST.create({
         trigger: parent,
-        start: startAt('87%'),
+        start: maskStart,
         once: true,
         onEnter: function () {
           gsap.to(kids, { yPercent: 0, duration: dur(parent), delay: delay(parent), stagger: 0.08, ease: 'power3.out', overwrite: true });
@@ -126,10 +141,11 @@
     $$('.anim-line', root).filter(fresh).forEach(function (el) {
       mark(el);
       if (reduced) return;
+      var lineStart = startAt('88%', el);
       gsap.set(el, { scaleX: 0, transformOrigin: '0 50%' });
       ST.create({
         trigger: el,
-        start: startAt('88%'),
+        start: lineStart,
         once: true,
         onEnter: function () {
           gsap.to(el, { scaleX: 1, duration: dur(el), delay: delay(el), ease: EASE, overwrite: true });
@@ -149,7 +165,7 @@
       var obj = { v: 0 };
       ST.create({
         trigger: el,
-        start: startAt('85%'),
+        start: startAt('85%', el),
         once: true,
         onEnter: function () {
           gsap.to(obj, {
