@@ -11,7 +11,11 @@
  *   Modifikátory: anim-fast | anim-slow | anim-d1 | anim-d2 | anim-d3
  *
  * Zásady:
- *   - skrývání POUZE přes gsap.set (JS mimo provoz = obsah normálně vidět)
+ *   - skrývání POUZE přes gsap.set (JS mimo provoz = obsah normálně vidět) a jen průhledností
+ *     (opacity, ne visibility) — obsah zůstává ve stromu přístupnosti; fokus z klávesnice
+ *     na ještě skrytém prvku ho odhalí hned; po animaci se inline styly uklidí (clearProps)
+ *   - ScrollTrigger.refresh() jen v klidu (ne při doteku a do 300 ms po scrollu) — programový
+ *     scrollTo uprostřed setrvačnosti by ji na mobilu utnul
  *   - prefers-reduced-motion: žádné animace, žádné skrývání
  *   - neviditelné elementy (zavřený akordeon, popup) se přeskakují a doanimují
  *     až po Bricks eventu — obsah nikdy nezůstane schovaný
@@ -33,14 +37,65 @@
     document.documentElement.classList.remove('sa-prehide');
   }
 
+  // ---- Interakce a klid scrollu (pro odložený refresh a iOS navigaci) ----
+  var touching = false, interacted = false, lastScroll = 0;
+  function now() { return Date.now(); }
+  function on(ev, fn) { window.addEventListener(ev, fn, { passive: true }); }
+  ['touchstart', 'wheel', 'keydown', 'mousedown'].forEach(function (ev) { on(ev, function () { interacted = true; }); });
+  on('touchstart', function () { touching = true; });
+  on('touchend', function () { touching = false; lastScroll = now(); });
+  on('touchcancel', function () { touching = false; });
+  on('scroll', function () { lastScroll = now(); });
+  function idle() { return !touching && now() - lastScroll > 300; }
+
+  // ---- iOS: nová navigace bez kotvy začíná nahoře ----
+  // iOS Safari při načítání nové stránky krátce hlásí pageYOffset předchozí stránky; startovní
+  // ScrollTrigger.refresh() si ho uloží a po přepočtu na něj stránku „vrátí“ → nová stránka se
+  // otevřela v polovině. Jen pro novou navigaci (ne reload, ne Zpět), bez kotvy a dokud
+  // uživatel nic neudělal.
+  var navEntry = window.performance && performance.getEntriesByType ? performance.getEntriesByType('navigation')[0] : null;
+  var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (isIOS && (!navEntry || navEntry.type === 'navigate') && !location.hash) {
+    var toTop = function () {
+      if (interacted || (window.pageYOffset || 0) < 1) return;
+      var h = document.documentElement, sb = h.style.scrollBehavior;
+      h.style.scrollBehavior = 'auto';
+      window.scrollTo(0, 0);
+      h.style.scrollBehavior = sb;
+    };
+    toTop();
+    document.addEventListener('DOMContentLoaded', toTop);
+    window.addEventListener('load', function () { toTop(); setTimeout(toTop, 80); });
+  }
+
   if (!window.gsap || !window.ScrollTrigger) { releasePrehide(); return; }
   var gsap = window.gsap;
   var ST = window.ScrollTrigger;
   gsap.registerPlugin(ST);
+  // Adresní řádek na mobilu mění výšku okna → refresh by uprostřed scrollu stránku posunul.
+  // „load“ obsluhuje engine sám (odložený refresh níže).
+  ST.config({ ignoreMobileResize: true, autoRefreshEvents: 'visibilitychange,DOMContentLoaded,resize' });
 
   var reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var EASE = 'power2.out';
   var SEEN = 'saInit';
+  // po animaci vrátit prvek CSS (hover, posuny a transformace z tříd zase fungují)
+  var CLEAR = 'transform,translate,rotate,scale,opacity,visibility';
+
+  // ---- Fokus z klávesnice na ještě skrytém prvku ho odhalí hned (přístupnost) ----
+  var pending = new Map(); // prvek (nebo rodič stagger/mask) → funkce okamžitého odhalení
+  function waitFor(el, reveal) { pending.set(el, reveal); }
+  function done(el) { pending.delete(el); }
+  function revealNow(targets) {
+    gsap.killTweensOf(targets);
+    gsap.set(targets, { clearProps: CLEAR });
+  }
+  document.addEventListener('focusin', function (e) {
+    for (var el = e.target; el && el !== document.documentElement; el = el.parentElement) {
+      var fn = pending.get(el);
+      if (fn) { pending.delete(el); fn(); }
+    }
+  });
 
   // Start triggeru. clamp() (GSAP 3.12+) ořízne start do rozsahu stránky → prvek u samého konce
   // stránky se odkryje nejpozději na jejím dně. Prvky, které jsou už při načtení nad spouštěcí
@@ -59,11 +114,11 @@
   document.head.appendChild(style);
 
   var PRESETS = {
-    'anim-up':    { y: 36, autoAlpha: 0 },
-    'anim-fade':  { autoAlpha: 0 },
-    'anim-left':  { x: -48, autoAlpha: 0 },
-    'anim-right': { x: 48, autoAlpha: 0 },
-    'anim-zoom':  { scale: 0.94, autoAlpha: 0 }
+    'anim-up':    { y: 36, opacity: 0 },
+    'anim-fade':  { opacity: 0 },
+    'anim-left':  { x: -48, opacity: 0 },
+    'anim-right': { x: 48, opacity: 0 },
+    'anim-zoom':  { scale: 0.94, opacity: 0 }
   };
 
   function $$(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
@@ -90,13 +145,15 @@
       var groups = {};
       els.forEach(function (el) { var s = startAt('88%', el); (groups[s] = groups[s] || []).push(el); });
       gsap.set(els, PRESETS[name]);
+      els.forEach(function (el) { waitFor(el, function () { revealNow(el); }); });
       Object.keys(groups).forEach(function (start) {
         ST.batch(groups[start], {
           start: start,
           once: true,
           onEnter: function (batch) {
             batch.forEach(function (el, i) {
-              gsap.to(el, { x: 0, y: 0, scale: 1, autoAlpha: 1, duration: dur(el), delay: i * 0.12 + delay(el), ease: EASE, overwrite: true });
+              done(el);
+              gsap.to(el, { x: 0, y: 0, scale: 1, opacity: 1, duration: dur(el), delay: i * 0.12 + delay(el), ease: EASE, overwrite: true, clearProps: CLEAR });
             });
           }
         });
@@ -109,13 +166,15 @@
       var kids = Array.prototype.slice.call(parent.children);
       if (!kids.length || reduced) return;
       var staggerStart = startAt('88%', parent);
-      gsap.set(kids, { y: 28, autoAlpha: 0 });
+      gsap.set(kids, { y: 28, opacity: 0 });
+      waitFor(parent, function () { revealNow(kids); });
       ST.create({
         trigger: parent,
         start: staggerStart,
         once: true,
         onEnter: function () {
-          gsap.to(kids, { y: 0, autoAlpha: 1, duration: dur(parent), delay: delay(parent), stagger: 0.1, ease: EASE, overwrite: true });
+          done(parent);
+          gsap.to(kids, { y: 0, opacity: 1, duration: dur(parent), delay: delay(parent), stagger: 0.1, ease: EASE, overwrite: true, clearProps: CLEAR });
         }
       });
     });
@@ -127,12 +186,14 @@
       if (!kids.length || reduced) return;
       var maskStart = startAt('87%', parent);
       gsap.set(kids, { yPercent: 115 });
+      waitFor(parent, function () { revealNow(kids); });
       ST.create({
         trigger: parent,
         start: maskStart,
         once: true,
         onEnter: function () {
-          gsap.to(kids, { yPercent: 0, duration: dur(parent), delay: delay(parent), stagger: 0.08, ease: 'power3.out', overwrite: true });
+          done(parent);
+          gsap.to(kids, { yPercent: 0, duration: dur(parent), delay: delay(parent), stagger: 0.08, ease: 'power3.out', overwrite: true, clearProps: CLEAR });
         }
       });
     });
@@ -148,7 +209,7 @@
         start: lineStart,
         once: true,
         onEnter: function () {
-          gsap.to(el, { scaleX: 1, duration: dur(el), delay: delay(el), ease: EASE, overwrite: true });
+          gsap.to(el, { scaleX: 1, duration: dur(el), delay: delay(el), ease: EASE, overwrite: true, clearProps: 'transform,scale,transformOrigin' });
         }
       });
     });
@@ -177,10 +238,24 @@
     });
   }
 
+  // ---- Refresh jen v klidu ----
+  // ScrollTrigger.refresh() změří triggery přes scrollTo(0, 0) a vrátí uloženou pozici scrollTo-m.
+  // Uprostřed setrvačnosti ji to na mobilu tvrdě utne → refresh čeká, až uživatel nedrží prst
+  // a 300 ms nescrolloval. Když už nečeká žádný trigger (once se po spuštění zabijí), není co přepočítat.
+  var lastHeight = document.documentElement.scrollHeight;
+  var refreshTimer = null, idleTimer = null;
+  function safeRefresh() {
+    clearTimeout(idleTimer);
+    if (!ST.getAll().length) { lastHeight = document.documentElement.scrollHeight; return; }
+    if (!idle()) { idleTimer = setTimeout(safeRefresh, 200); return; }
+    ST.refresh();
+    lastHeight = document.documentElement.scrollHeight;
+  }
+
   function rescan() {
     requestAnimationFrame(function () {
       initScope(document);
-      ST.refresh();
+      safeRefresh();
     });
   }
 
@@ -205,16 +280,10 @@
   // dokumentu a při skutečné změně (≥ 2 px) přepočítáme, s debounce a bez smyčky
   // (výška se zapisuje až PO refreshi, takže změna způsobená samotným refreshem
   // — např. pin spacery z custom.js — vyvolá nanejvýš jeden další přepočet).
-  var lastHeight = document.documentElement.scrollHeight;
-  var refreshTimer = null;
-  function refreshNow() {
-    ST.refresh();
-    lastHeight = document.documentElement.scrollHeight;
-  }
   function refreshIfResized() {
     clearTimeout(refreshTimer);
     refreshTimer = setTimeout(function () {
-      if (Math.abs(document.documentElement.scrollHeight - lastHeight) >= 2) refreshNow();
+      if (Math.abs(document.documentElement.scrollHeight - lastHeight) >= 2) safeRefresh();
     }, 150);
   }
 
@@ -229,5 +298,5 @@
     if (document.fonts && document.fonts.ready) document.fonts.ready.then(refreshIfResized);
   }
 
-  window.addEventListener('load', refreshNow);
+  window.addEventListener('load', safeRefresh);
 })();

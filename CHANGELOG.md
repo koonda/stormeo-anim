@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.3.0 — 2026-11-23
+
+Přístupnost a plynulý scroll na mobilu ([#1](https://github.com/koonda/stormeo-anim/issues/1), [#2](https://github.com/koonda/stormeo-anim/issues/2)).
+
+**Přístupnost (#1)**
+- Skrývání před odhalením jen průhledností (`opacity`), už ne `autoAlpha` (`visibility: hidden`). Obsah pod ohybem zůstává ve stromu přístupnosti: čtečka ho najde a Tab ho nepřeskočí (typicky kontaktní formulář s `anim-up`).
+- Pre-hide CSS v `<head>` (`html.sa-prehide …`) také jen `opacity: 0`.
+- Fokus z klávesnice na prvku, který se ještě neodhalil (i uvnitř `anim-stagger` / `anim-mask`), ho odhalí hned a bez animace.
+- Po dokončení animace se inline styly uklidí (`clearProps`). Dřív na prvku zůstalo `translate: none; transform: …` a přebíjelo posuny a hover efekty z CSS tříd. Pozor: kdo v `custom.js` animuje transformace prvku, který má zároveň marker `anim-*`, přijde o ně po odhalení (marker a bespoke animaci nekombinovat na jednom prvku).
+
+**Scroll na mobilu (#2)**
+- `ScrollTrigger.refresh()` jen v klidu: ne při doteku a ne do 300 ms od posledního `scroll`. Refresh měří přes `scrollTo(0, 0)` a vrací uloženou pozici, což uprostřed setrvačnosti scroll na mobilu tvrdě utne. Týká se přepočtu po změně výšky stránky (dočtené obrázky, fonty), Bricks AJAX re-scanu i přepočtu po `load`.
+- Refresh se nevolá, když už nečeká žádný trigger (`once` triggery se po spuštění samy zabijí).
+- `ScrollTrigger.config({ ignoreMobileResize: true, autoRefreshEvents: 'visibilitychange,DOMContentLoaded,resize' })`: adresní řádek nespouští refresh, `load` obsluhuje engine odloženě.
+- iOS: nová navigace bez kotvy začíná nahoře. iOS Safari při načítání krátce hlásí `pageYOffset` předchozí stránky a startovní refresh na něj stránku „vrátil“ (nová stránka se otevřela v polovině). Jen `navigation.type === 'navigate'`, bez `#kotvy` a dokud uživatel nic neudělal. Reload a tlačítko Zpět beze změny.
+- Inline pre-hide skript má `data-no-optimize`, `data-no-defer`, `data-no-minify` a `data-cfasync="false"`, aby ho optimalizační pluginy neodložily (FlyingPress viz README).
+
+**Ověřeno** na testovací stránce (Playwright, Chromium a emulace iPhonu, srovnání s 1.2.2): `visibility: hidden` 11 → 0 prvků; tlačítko formuláře pod ohybem dostupné přes `getByRole`; fokus formulář odhalí; `scrollTo` během scrollu se změnou výšky 6 → 0 (jeden refresh až v klidu); po animaci 0 prvků s inline transformací; první viewport se odkryje bez scrollu; po dojetí stránky nic skrytého; `prefers-reduced-motion` nic neskrývá; kotva, reload a Zpět drží pozici.
+
+Pozn.: přepis jednorázových reveals na `IntersectionObserver` (bod 5 v #2) zůstává na další verzi.
+
 ## 1.2.2 — 2026-10-07
 
 Oprava regrese z 1.2.1: prvky v prvním viewportu se neodkryly, dokud uživatel nezascrolloval.

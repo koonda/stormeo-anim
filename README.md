@@ -30,6 +30,9 @@ Modifikátory (kombinuj s markerem): `anim-fast` (0,8 s) · `anim-slow` (2,2 s) 
 - **Grid/seznam = `anim-stagger` na wrapper**, ne `anim-up` na každou kartu.
 - **Hero H1 a LCP obrázek marker třídy NIKDY nedostávají** — Google čeká na vykreslení LCP; hero řeší bespoke vrstva, která běží okamžitě po loadu.
 - Skrývání probíhá **jen přes JS** (`gsap.set`) — bez JS je obsah normálně viditelný (SEO, přístupnost). Proti záblesku obsahu před startem enginu (studená cache) plugin vkládá do `<head>` pre-paint skrytí (`html.sa-prehide` + inline CSS) s failsafe timeoutem 4 s — když se engine nenastartuje, obsah se odkryje sám.
+- Skrývá se **jen průhledností** (`opacity`, ne `visibility`) — obsah pod ohybem zůstává ve stromu přístupnosti a fokus z klávesnice ho odhalí hned. Po animaci engine inline styly uklidí, takže hover a posuny z CSS tříd fungují. Marker `anim-*` a bespoke animaci transformací v `custom.js` nekombinuj na jednom prvku.
+- `ScrollTrigger.refresh()` běží jen v klidu (ne během scrollu a doteku) — na mobilu by jinak utnul setrvačnost. Na iOS nová stránka bez kotvy vždy začíná nahoře.
+- **Optimalizační pluginy:** inline pre-hide skript (`id="stormeo-anim-prehide-js"`) se nesmí odkládat ani zpožďovat. Nese `data-no-optimize`, `data-no-defer` a `data-cfasync="false"`. Ve **FlyingPress** přidej `stormeo-anim` do vyloučení u *Defer JavaScript* i *Delay JavaScript* (jinak se skript spustí až po vykreslení a pre-hide proti záblesku nefunguje); engine (`stormeo-anim.js`) odkládat lze.
 - `prefers-reduced-motion: reduce` → žádné animace, žádné skrývání.
 - Bricks AJAX (query filtry, stránkování, popupy, akordeony, taby) — engine poslouchá Bricks eventy a nové/odkryté uzly doanimuje; obsah nikdy nezůstane schovaný.
 
